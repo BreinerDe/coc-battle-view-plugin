@@ -1,0 +1,14 @@
+{
+  "name": "coc-battle-view",
+  "version": "0.1.0",
+  "private": true,
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "obsidian": "latest",
+    "tslib": "^2.8.1",
+    "typescript": "^5.8.3"
+  },
+  "scripts": {
+    "build": "esbuild main.ts --bundle --outfile=main.js --format=cjs --platform=browser --external:obsidian"
+  }
+}

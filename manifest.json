@@ -1,0 +1,10 @@
+{
+  "id": "coc-battle-view",
+  "name": "CoC Battle View",
+  "version": "0.1.0",
+  "minAppVersion": "1.5.0",
+  "description": "Drag NPC notes into a battle view, sort by DEX, track turns and HP, and display the original statblock content.",
+  "author": "OpenAI",
+  "authorUrl": "https://openai.com",
+  "isDesktopOnly": false
+}

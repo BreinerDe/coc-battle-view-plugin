@@ -1,0 +1,220 @@
+.coc-battle-root {
+	padding: 16px;
+	height: 100%;
+	overflow: hidden;
+}
+
+.coc-battle-layout {
+	display: grid;
+	grid-template-columns: 320px minmax(420px, 1fr) 300px;
+	gap: 16px;
+	height: 100%;
+}
+
+.coc-battle-panel {
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 14px;
+	background: var(--background-primary);
+	padding: 18px;
+	overflow: auto;
+	min-height: 0;
+}
+
+.coc-battle-title {
+	margin: 0 0 12px 0;
+	font-size: 2rem;
+	line-height: 1.1;
+}
+
+.coc-battle-dropzone {
+	border: 2px dashed var(--background-modifier-border);
+	border-radius: 12px;
+	padding: 18px;
+	text-align: center;
+	color: var(--text-muted);
+	margin-bottom: 14px;
+	transition: all 0.15s ease;
+}
+
+.coc-battle-dropzone.is-dragover {
+	border-color: var(--interactive-accent);
+	background: color-mix(in srgb, var(--interactive-accent) 10%, transparent);
+	color: var(--text-normal);
+}
+
+.coc-battle-button-row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-bottom: 16px;
+}
+
+.coc-battle-button-row button,
+.coc-battle-hp-controls button,
+.coc-battle-action-btn {
+	border-radius: 8px;
+	padding: 8px 10px;
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-secondary);
+	cursor: pointer;
+}
+
+.coc-battle-button-row button:hover,
+.coc-battle-hp-controls button:hover,
+.coc-battle-action-btn:hover {
+	background: var(--background-modifier-hover);
+}
+
+.coc-battle-round {
+	font-size: 1.6rem;
+	font-weight: 700;
+	margin-bottom: 12px;
+}
+
+.coc-battle-combatants {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.coc-battle-combatant-row {
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 12px;
+	padding: 12px;
+	background: var(--background-secondary);
+	cursor: pointer;
+	transition: all 0.12s ease;
+}
+
+.coc-battle-combatant-row:hover {
+	background: var(--background-modifier-hover);
+	transform: translateY(-1px);
+}
+
+.coc-battle-combatant-row.is-active {
+	border-color: var(--interactive-accent);
+	box-shadow: 0 0 0 2px color-mix(in srgb, var(--interactive-accent) 22%, transparent);
+	background: color-mix(in srgb, var(--interactive-accent) 8%, var(--background-secondary));
+}
+
+.coc-battle-row-top {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 12px;
+	margin-bottom: 8px;
+}
+
+.coc-battle-row-left {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	min-width: 0;
+}
+
+.coc-battle-row-right {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex-shrink: 0;
+}
+
+.coc-battle-init {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 38px;
+	height: 38px;
+	padding: 0 10px;
+	border-radius: 999px;
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	font-weight: 700;
+}
+
+.coc-battle-name {
+	font-weight: 700;
+	font-size: 1.05rem;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.coc-battle-hp {
+	font-weight: 600;
+	color: var(--text-normal);
+}
+
+.coc-battle-row-actions {
+	display: flex;
+	gap: 8px;
+	flex-wrap: wrap;
+}
+
+.coc-battle-action-btn.danger {
+	color: var(--text-error);
+}
+
+.coc-battle-active-statblock {
+	height: 100%;
+}
+
+.coc-battle-note-wrapper {
+	padding-right: 4px;
+}
+
+.coc-battle-turn-name {
+	margin: 0 0 10px 0;
+	font-size: 1.5rem;
+}
+
+.coc-battle-turn-hp {
+	font-size: 1.2rem;
+	font-weight: 700;
+	margin-bottom: 12px;
+}
+
+.coc-battle-hp-controls {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-bottom: 18px;
+}
+
+.coc-battle-subtitle {
+	margin: 10px 0 10px 0;
+	font-size: 1.1rem;
+}
+
+.coc-battle-attack-list {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.coc-battle-attack-row {
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 10px;
+	padding: 10px;
+	background: var(--background-secondary);
+}
+
+.coc-battle-modal-input {
+	width: 100%;
+	padding: 10px 12px;
+	font-size: 1rem;
+	margin: 12px 0 16px 0;
+	border-radius: 8px;
+}
+
+.coc-battle-modal-buttons {
+	display: flex;
+	justify-content: flex-end;
+	gap: 10px;
+}
+
+@media (max-width: 1200px) {
+	.coc-battle-layout {
+		grid-template-columns: 1fr;
+	}
+}
