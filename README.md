@@ -31,7 +31,12 @@ combat:
     desc: "35%"
 ```
 
+## build 
+```npm build```
+
 ## Install for testing
+
+
 
 Copy these files into:
 
@@ -41,6 +46,4 @@ Copy these files into:
 - main.ts
 - styles.css
 
-Then build `main.ts` to `main.js` using your preferred Obsidian plugin setup.
 
-A simple route is to start from the official Obsidian sample plugin and replace its source with the files here.
