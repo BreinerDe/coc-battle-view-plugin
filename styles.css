@@ -290,3 +290,14 @@
 		grid-template-columns: 1fr;
 	}
 }
+.coc-battle-badge.insanity,
+.coc-battle-statebar-item.insanity {
+	border-color: #b785ff;
+	color: #d4b8ff;
+}
+
+.coc-battle-modal-help {
+	color: var(--text-muted);
+	margin-top: -4px;
+	margin-bottom: 12px;
+}

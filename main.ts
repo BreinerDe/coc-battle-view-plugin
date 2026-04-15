@@ -18,6 +18,11 @@ interface CombatAttack {
 	desc: string;
 }
 
+interface TemporaryInsanity {
+	label: string;
+	untilRound: number;
+}
+
 interface Combatant {
 	id: string;
 	filePath: string;
@@ -33,6 +38,7 @@ interface Combatant {
 	rawNote: string;
 	rawStatblock: string;
 	majorWound: boolean;
+	temporaryInsanity?: TemporaryInsanity | null;
 }
 
 export default class CoCBattleViewPlugin extends Plugin {
@@ -126,10 +132,87 @@ class NumberInputModal extends Modal {
 		};
 
 		input.addEventListener("keydown", (e) => {
-			if (e.key === "Enter") {
-				applyBtn.click();
-			}
+			if (e.key === "Enter") applyBtn.click();
 		});
+	}
+
+	onClose() {
+		this.contentEl.empty();
+	}
+}
+
+class InsanityModal extends Modal {
+	private currentRound: number;
+	private onSubmit: (label: string, duration: number) => void;
+
+	constructor(
+		app: App,
+		currentRound: number,
+		onSubmit: (label: string, duration: number) => void
+	) {
+		super(app);
+		this.currentRound = currentRound;
+		this.onSubmit = onSubmit;
+	}
+
+	onOpen() {
+		const { contentEl } = this;
+		contentEl.empty();
+
+		contentEl.createEl("h2", { text: "Set Temporary Insanity" });
+
+		const labelInput = contentEl.createEl("input", {
+			type: "text",
+			placeholder: "e.g. Raserei, Panische Flucht, Erstarren",
+		});
+		labelInput.addClass("coc-battle-modal-input");
+
+		const durationInput = contentEl.createEl("input", {
+			type: "number",
+			attr: { min: "1", step: "1" },
+			placeholder: "Rounds",
+		});
+		durationInput.addClass("coc-battle-modal-input");
+
+		const info = contentEl.createEl("p", {
+			text: `Current round: ${this.currentRound}`,
+		});
+		info.addClass("coc-battle-modal-help");
+
+		const buttons = contentEl.createDiv({ cls: "coc-battle-modal-buttons" });
+
+		const cancelBtn = buttons.createEl("button", { text: "Cancel" });
+		const applyBtn = buttons.createEl("button", { text: "Apply" });
+		applyBtn.addClass("mod-cta");
+
+		cancelBtn.onclick = () => this.close();
+		applyBtn.onclick = () => {
+			const label = labelInput.value.trim();
+			const duration = Number(durationInput.value);
+
+			if (!label) {
+				new Notice("Please enter an insanity label.");
+				return;
+			}
+
+			if (!Number.isFinite(duration) || duration < 1) {
+				new Notice("Please enter a valid duration in rounds.");
+				return;
+			}
+
+			this.onSubmit(label, duration);
+			this.close();
+		};
+
+		labelInput.addEventListener("keydown", (e) => {
+			if (e.key === "Enter") durationInput.focus();
+		});
+
+		durationInput.addEventListener("keydown", (e) => {
+			if (e.key === "Enter") applyBtn.click();
+		});
+
+		labelInput.focus();
 	}
 
 	onClose() {
@@ -184,7 +267,6 @@ class CoCBattleView extends ItemView {
 		const center = layout.createDiv({ cls: "coc-battle-panel coc-battle-center" });
 		const right = layout.createDiv({ cls: "coc-battle-panel coc-battle-right" });
 
-		// LEFT
 		left.createEl("h1", { text: "Combatants", cls: "coc-battle-title" });
 
 		this.dropZoneEl = left.createDiv({ cls: "coc-battle-dropzone" });
@@ -209,12 +291,10 @@ class CoCBattleView extends ItemView {
 
 		this.combatantsEl = left.createDiv({ cls: "coc-battle-combatants" });
 
-		// CENTER
 		center.createEl("h1", { text: "Active Statblock", cls: "coc-battle-title" });
 		this.activeStatblockEl = center.createDiv({ cls: "coc-battle-active-statblock" });
 		this.activeStatblockEl.setText("Select or add a combatant.");
 
-		// RIGHT
 		right.createEl("h1", { text: "Turn Tools", cls: "coc-battle-title" });
 		this.turnToolsEl = right.createDiv({ cls: "coc-battle-turn-tools" });
 		this.turnToolsEl.setText("Select a combatant to edit HP.");
@@ -352,6 +432,7 @@ class CoCBattleView extends ItemView {
 			rawNote: content,
 			rawStatblock: parsed.rawStatblock ?? "",
 			majorWound: false,
+			temporaryInsanity: null,
 		};
 
 		this.combatants.push(combatant);
@@ -372,6 +453,17 @@ class CoCBattleView extends ItemView {
 		this.combatants.sort((a, b) => b.dex - a.dex);
 	}
 
+	private expireRoundEffects() {
+		for (const c of this.combatants) {
+			if (
+				c.temporaryInsanity &&
+				this.round > c.temporaryInsanity.untilRound
+			) {
+				c.temporaryInsanity = null;
+			}
+		}
+	}
+
 	private startCombat() {
 		if (this.combatants.length === 0) {
 			new Notice("No combatants yet.");
@@ -381,6 +473,7 @@ class CoCBattleView extends ItemView {
 		this.started = true;
 		this.activeIndex = 0;
 		this.round = 1;
+		this.expireRoundEffects();
 
 		this.renderCombatants();
 		this.renderTurnTools();
@@ -396,6 +489,7 @@ class CoCBattleView extends ItemView {
 		if (this.activeIndex >= this.combatants.length) {
 			this.activeIndex = 0;
 			this.round++;
+			this.expireRoundEffects();
 		}
 
 		this.renderCombatants();
@@ -412,6 +506,7 @@ class CoCBattleView extends ItemView {
 		if (this.activeIndex < 0) {
 			this.activeIndex = this.combatants.length - 1;
 			this.round = Math.max(1, this.round - 1);
+			this.expireRoundEffects();
 		}
 
 		this.renderCombatants();
@@ -435,10 +530,6 @@ class CoCBattleView extends ItemView {
 	}
 
 	private getStatus(c: Combatant): CombatStatus {
-		// Official CoC 7e:
-		// 0 HP without major wound = unconscious
-		// 0 HP with major wound = dying
-		// dead at -max HP or lower
 		if (c.currentHp <= -c.maxHp) return "dead";
 		if (c.currentHp <= 0 && c.majorWound) return "dying";
 		if (c.currentHp <= 0) return "unconscious";
@@ -526,6 +617,13 @@ class CoCBattleView extends ItemView {
 				)}+ damage`;
 			}
 
+			if (combatant.temporaryInsanity) {
+				badges.createSpan({
+					text: `🌀 ${combatant.temporaryInsanity.label} (bis R${combatant.temporaryInsanity.untilRound})`,
+					cls: "coc-battle-badge insanity",
+				});
+			}
+
 			if (status !== "normal") {
 				badges.createSpan({
 					text: `${this.getStatusIcon(status)} ${this.getStatusLabel(status)}`,
@@ -545,11 +643,15 @@ class CoCBattleView extends ItemView {
 			const woundBtn = actionRow.createEl("button", {
 				text: combatant.majorWound ? "Clear Wound" : "Set Wound",
 			});
+			const insanityBtn = actionRow.createEl("button", {
+				text: combatant.temporaryInsanity ? "Clear Insanity" : "Set Insanity",
+			});
 			const removeBtn = actionRow.createEl("button", { text: "Remove" });
 
 			damageBtn.addClass("coc-battle-action-btn");
 			healBtn.addClass("coc-battle-action-btn");
 			woundBtn.addClass("coc-battle-action-btn");
+			insanityBtn.addClass("coc-battle-action-btn");
 			removeBtn.addClass("coc-battle-action-btn", "danger");
 
 			damageBtn.onclick = (e) => {
@@ -569,6 +671,15 @@ class CoCBattleView extends ItemView {
 			woundBtn.onclick = (e) => {
 				e.stopPropagation();
 				this.toggleMajorWound(index);
+			};
+
+			insanityBtn.onclick = (e) => {
+				e.stopPropagation();
+				if (combatant.temporaryInsanity) {
+					this.clearInsanity(index);
+				} else {
+					this.openInsanityModal(index);
+				}
 			};
 
 			removeBtn.onclick = (e) => {
@@ -609,6 +720,33 @@ class CoCBattleView extends ItemView {
 		if (!c) return;
 
 		c.majorWound = !c.majorWound;
+
+		this.renderCombatants();
+		this.renderTurnTools();
+		this.renderActiveStatblock();
+	}
+
+	private openInsanityModal(index: number) {
+		new InsanityModal(this.app, this.round, (label, duration) => {
+			const c = this.combatants[index];
+			if (!c) return;
+
+			c.temporaryInsanity = {
+				label,
+				untilRound: this.round + duration,
+			};
+
+			this.renderCombatants();
+			this.renderTurnTools();
+			this.renderActiveStatblock();
+		}).open();
+	}
+
+	private clearInsanity(index: number) {
+		const c = this.combatants[index];
+		if (!c) return;
+
+		c.temporaryInsanity = null;
 
 		this.renderCombatants();
 		this.renderTurnTools();
@@ -656,6 +794,13 @@ class CoCBattleView extends ItemView {
 			});
 		}
 
+		if (c.temporaryInsanity) {
+			badges.createSpan({
+				text: `🌀 ${c.temporaryInsanity.label} (bis R${c.temporaryInsanity.untilRound})`,
+				cls: "coc-battle-badge insanity",
+			});
+		}
+
 		if (status !== "normal") {
 			badges.createSpan({
 				text: `${this.getStatusIcon(status)} ${this.getStatusLabel(status)}`,
@@ -679,6 +824,9 @@ class CoCBattleView extends ItemView {
 		const woundToggle = controls.createEl("button", {
 			text: c.majorWound ? "Clear Wound" : "Set Wound",
 		});
+		const insanityToggle = controls.createEl("button", {
+			text: c.temporaryInsanity ? "Clear Insanity" : "Set Insanity",
+		});
 
 		minus1.onclick = () => this.changeHp(-1);
 		minusD3.onclick = () => this.changeHp(-this.rollDie(3));
@@ -696,6 +844,14 @@ class CoCBattleView extends ItemView {
 
 		woundToggle.onclick = () => {
 			this.toggleMajorWound(this.activeIndex);
+		};
+
+		insanityToggle.onclick = () => {
+			if (c.temporaryInsanity) {
+				this.clearInsanity(this.activeIndex);
+			} else {
+				this.openInsanityModal(this.activeIndex);
+			}
 		};
 
 		if (c.attacks.length > 0) {
@@ -739,6 +895,7 @@ class CoCBattleView extends ItemView {
 		}
 
 		const c = this.combatants[this.activeIndex];
+		const status = this.getStatus(c);
 
 		const noteWrapper = this.activeStatblockEl.createDiv({
 			cls: "coc-battle-note-wrapper",
@@ -748,8 +905,6 @@ class CoCBattleView extends ItemView {
 			noteWrapper.setText("No statblock found.");
 			return;
 		}
-
-		const status = this.getStatus(c);
 
 		const stateBar = noteWrapper.createDiv({ cls: "coc-battle-statebar" });
 		stateBar.createSpan({
@@ -761,6 +916,13 @@ class CoCBattleView extends ItemView {
 			stateBar.createSpan({
 				text: "🩹 Major Wound",
 				cls: "coc-battle-statebar-item major-wound",
+			});
+		}
+
+		if (c.temporaryInsanity) {
+			stateBar.createSpan({
+				text: `🌀 ${c.temporaryInsanity.label} (bis R${c.temporaryInsanity.untilRound})`,
+				cls: "coc-battle-statebar-item insanity",
 			});
 		}
 
