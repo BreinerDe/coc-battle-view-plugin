@@ -1,12 +1,12 @@
 .coc-battle-root {
-	padding: 16px;
+	padding: 14px;
 	height: 100%;
 	overflow: hidden;
 }
 
 .coc-battle-layout {
 	display: grid;
-	grid-template-columns: 320px minmax(420px, 1fr) 300px;
+	grid-template-columns: 330px minmax(520px, 1fr) 280px;
 	gap: 16px;
 	height: 100%;
 }
@@ -66,7 +66,7 @@
 }
 
 .coc-battle-round {
-	font-size: 1.6rem;
+	font-size: 1.5rem;
 	font-weight: 700;
 	margin-bottom: 12px;
 }
@@ -79,7 +79,7 @@
 
 .coc-battle-combatant-row {
 	border: 1px solid var(--background-modifier-border);
-	border-radius: 12px;
+	border-radius: 14px;
 	padding: 12px;
 	background: var(--background-secondary);
 	cursor: pointer;
@@ -93,21 +93,34 @@
 
 .coc-battle-combatant-row.is-active {
 	border-color: var(--interactive-accent);
-	box-shadow: 0 0 0 2px color-mix(in srgb, var(--interactive-accent) 22%, transparent);
-	background: color-mix(in srgb, var(--interactive-accent) 8%, var(--background-secondary));
+	box-shadow: 0 0 0 2px color-mix(in srgb, var(--interactive-accent) 20%, transparent);
+	background: color-mix(in srgb, var(--interactive-accent) 9%, var(--background-secondary));
+}
+
+.coc-battle-combatant-row.status-unconscious {
+	border-color: color-mix(in srgb, #6aa9ff 50%, var(--background-modifier-border));
+}
+
+.coc-battle-combatant-row.status-dying {
+	border-color: color-mix(in srgb, #ff8c66 50%, var(--background-modifier-border));
+}
+
+.coc-battle-combatant-row.status-dead {
+	border-color: color-mix(in srgb, #ff5d5d 50%, var(--background-modifier-border));
+	opacity: 0.8;
 }
 
 .coc-battle-row-top {
 	display: flex;
 	justify-content: space-between;
-	align-items: center;
+	align-items: flex-start;
 	gap: 12px;
-	margin-bottom: 8px;
+	margin-bottom: 10px;
 }
 
 .coc-battle-row-left {
 	display: flex;
-	align-items: center;
+	align-items: flex-start;
 	gap: 10px;
 	min-width: 0;
 }
@@ -123,26 +136,78 @@
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	min-width: 38px;
-	height: 38px;
+	min-width: 40px;
+	height: 40px;
 	padding: 0 10px;
 	border-radius: 999px;
 	background: var(--background-primary);
 	border: 1px solid var(--background-modifier-border);
 	font-weight: 700;
+	font-size: 0.95rem;
+}
+
+.coc-battle-name-wrap {
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
 }
 
 .coc-battle-name {
 	font-weight: 700;
 	font-size: 1.05rem;
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
+	line-height: 1.2;
+	word-break: break-word;
+}
+
+.coc-battle-badges,
+.coc-battle-turn-badges {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+
+.coc-battle-badge,
+.coc-battle-statebar-item {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 4px 8px;
+	border-radius: 999px;
+	font-size: 0.82rem;
+	font-weight: 600;
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+}
+
+.coc-battle-badge.major-wound,
+.coc-battle-statebar-item.major-wound {
+	border-color: #d2a94f;
+	color: #e8c977;
+}
+
+.coc-battle-badge.status.unconscious,
+.coc-battle-statebar-item.status.unconscious {
+	border-color: #6aa9ff;
+	color: #9bc4ff;
+}
+
+.coc-battle-badge.status.dying,
+.coc-battle-statebar-item.status.dying {
+	border-color: #ff8c66;
+	color: #ffb198;
+}
+
+.coc-battle-badge.status.dead,
+.coc-battle-statebar-item.status.dead {
+	border-color: #ff5d5d;
+	color: #ff9c9c;
 }
 
 .coc-battle-hp {
-	font-weight: 600;
+	font-weight: 700;
 	color: var(--text-normal);
+	font-size: 0.95rem;
 }
 
 .coc-battle-row-actions {
@@ -163,15 +228,22 @@
 	padding-right: 4px;
 }
 
+.coc-battle-statebar {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-bottom: 12px;
+}
+
 .coc-battle-turn-name {
 	margin: 0 0 10px 0;
 	font-size: 1.5rem;
 }
 
 .coc-battle-turn-hp {
-	font-size: 1.2rem;
+	font-size: 1.15rem;
 	font-weight: 700;
-	margin-bottom: 12px;
+	margin: 10px 0 12px 0;
 }
 
 .coc-battle-hp-controls {
@@ -183,7 +255,7 @@
 
 .coc-battle-subtitle {
 	margin: 10px 0 10px 0;
-	font-size: 1.1rem;
+	font-size: 1.05rem;
 }
 
 .coc-battle-attack-list {
@@ -213,7 +285,7 @@
 	gap: 10px;
 }
 
-@media (max-width: 1200px) {
+@media (max-width: 1280px) {
 	.coc-battle-layout {
 		grid-template-columns: 1fr;
 	}
