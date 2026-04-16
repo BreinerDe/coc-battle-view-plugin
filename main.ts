@@ -41,11 +41,37 @@ interface Combatant {
 	temporaryInsanity?: TemporaryInsanity | null;
 }
 
+interface PersistedCombatant {
+	id: string;
+	filePath: string;
+	fileName: string;
+	name: string;
+	dex: number;
+	maxHp: number;
+	currentHp: number;
+	sanity?: number;
+	move?: number;
+	damageBonus?: string;
+	majorWound: boolean;
+	temporaryInsanity?: TemporaryInsanity | null;
+}
+
+interface BattleState {
+	combatants: PersistedCombatant[];
+	activeIndex: number;
+	round: number;
+	started: boolean;
+}
+
 export default class CoCBattleViewPlugin extends Plugin {
+	state: BattleState | null = null;
+
 	async onload() {
+		this.state = (await this.loadData()) ?? null;
+
 		this.registerView(
 			VIEW_TYPE_COC_BATTLE,
-			(leaf) => new CoCBattleView(this.app, leaf)
+			(leaf) => new CoCBattleView(this.app, leaf, this)
 		);
 
 		this.addCommand({
@@ -163,7 +189,7 @@ class InsanityModal extends Modal {
 
 		const labelInput = contentEl.createEl("input", {
 			type: "text",
-			placeholder: "e.g. Raserei, Panische Flucht, Erstarren",
+			placeholder: "z. B. Raserei, Panische Flucht, Erstarren",
 		});
 		labelInput.addClass("coc-battle-modal-input");
 
@@ -221,6 +247,8 @@ class InsanityModal extends Modal {
 }
 
 class CoCBattleView extends ItemView {
+	private plugin: CoCBattleViewPlugin;
+
 	private combatants: Combatant[] = [];
 	private activeIndex = -1;
 	private round = 1;
@@ -232,8 +260,9 @@ class CoCBattleView extends ItemView {
 	private roundEl!: HTMLDivElement;
 	private dropZoneEl!: HTMLDivElement;
 
-	constructor(app: App, leaf: WorkspaceLeaf) {
+	constructor(app: App, leaf: WorkspaceLeaf, plugin: CoCBattleViewPlugin) {
 		super(leaf);
+		this.plugin = plugin;
 	}
 
 	getViewType(): string {
@@ -249,11 +278,83 @@ class CoCBattleView extends ItemView {
 	}
 
 	async onOpen() {
+		if (this.plugin.state) {
+			await this.restoreState(this.plugin.state);
+		}
 		this.render();
 	}
 
 	async onClose() {
 		// nothing
+	}
+
+	private async saveState() {
+		const state: BattleState = {
+			combatants: this.combatants.map((c) => ({
+				id: c.id,
+				filePath: c.filePath,
+				fileName: c.fileName,
+				name: c.name,
+				dex: c.dex,
+				maxHp: c.maxHp,
+				currentHp: c.currentHp,
+				sanity: c.sanity,
+				move: c.move,
+				damageBonus: c.damageBonus,
+				majorWound: c.majorWound,
+				temporaryInsanity: c.temporaryInsanity ?? null,
+			})),
+			activeIndex: this.activeIndex,
+			round: this.round,
+			started: this.started,
+		};
+
+		this.plugin.state = state;
+		await this.plugin.saveData(state);
+	}
+
+	private async restoreState(state: BattleState) {
+		this.combatants = [];
+
+		for (const saved of state.combatants ?? []) {
+			const file = this.app.vault.getAbstractFileByPath(saved.filePath);
+			if (!(file instanceof TFile)) continue;
+
+			const content = await this.app.vault.read(file);
+			const parsed = this.parseStatblock(content);
+			if (!parsed) continue;
+
+			this.combatants.push({
+				id: saved.id,
+				filePath: saved.filePath,
+				fileName: saved.fileName,
+				name: saved.name,
+				dex: saved.dex,
+				maxHp: saved.maxHp,
+				currentHp: saved.currentHp,
+				sanity: saved.sanity,
+				move: saved.move,
+				damageBonus: saved.damageBonus,
+				majorWound: saved.majorWound,
+				temporaryInsanity: saved.temporaryInsanity ?? null,
+				rawNote: content,
+				rawStatblock: parsed.rawStatblock ?? "",
+				attacks: parsed.attacks ?? [],
+			});
+		}
+
+		this.activeIndex = state.activeIndex ?? -1;
+		this.round = state.round ?? 1;
+		this.started = state.started ?? false;
+		this.expireRoundEffects();
+
+		if (this.combatants.length === 0) {
+			this.activeIndex = -1;
+			this.round = 1;
+			this.started = false;
+		} else if (this.activeIndex >= this.combatants.length) {
+			this.activeIndex = this.combatants.length - 1;
+		}
 	}
 
 	private render() {
@@ -278,13 +379,11 @@ class CoCBattleView extends ItemView {
 		const nextBtn = buttonRow.createEl("button", { text: "Next" });
 		const prevBtn = buttonRow.createEl("button", { text: "Prev" });
 		const clearBtn = buttonRow.createEl("button", { text: "Clear" });
-		const addActiveBtn = buttonRow.createEl("button", { text: "Add Active Note" });
 
-		startBtn.onclick = () => this.startCombat();
-		nextBtn.onclick = () => this.nextTurn();
-		prevBtn.onclick = () => this.prevTurn();
-		clearBtn.onclick = () => this.clearCombat();
-		addActiveBtn.onclick = async () => this.addActiveNote();
+		startBtn.onclick = async () => this.startCombat();
+		nextBtn.onclick = async () => this.nextTurn();
+		prevBtn.onclick = async () => this.prevTurn();
+		clearBtn.onclick = async () => this.clearCombat();
 
 		this.roundEl = left.createDiv({ cls: "coc-battle-round" });
 		this.roundEl.setText(`Round ${this.round}`);
@@ -447,6 +546,7 @@ class CoCBattleView extends ItemView {
 		this.renderCombatants();
 		this.renderTurnTools();
 		this.renderActiveStatblock();
+		await this.saveState();
 	}
 
 	private sortCombatants() {
@@ -455,16 +555,13 @@ class CoCBattleView extends ItemView {
 
 	private expireRoundEffects() {
 		for (const c of this.combatants) {
-			if (
-				c.temporaryInsanity &&
-				this.round > c.temporaryInsanity.untilRound
-			) {
+			if (c.temporaryInsanity && this.round > c.temporaryInsanity.untilRound) {
 				c.temporaryInsanity = null;
 			}
 		}
 	}
 
-	private startCombat() {
+	private async startCombat() {
 		if (this.combatants.length === 0) {
 			new Notice("No combatants yet.");
 			return;
@@ -478,9 +575,10 @@ class CoCBattleView extends ItemView {
 		this.renderCombatants();
 		this.renderTurnTools();
 		this.renderActiveStatblock();
+		await this.saveState();
 	}
 
-	private nextTurn() {
+	private async nextTurn() {
 		if (this.combatants.length === 0) return;
 		if (!this.started) this.started = true;
 
@@ -495,9 +593,10 @@ class CoCBattleView extends ItemView {
 		this.renderCombatants();
 		this.renderTurnTools();
 		this.renderActiveStatblock();
+		await this.saveState();
 	}
 
-	private prevTurn() {
+	private async prevTurn() {
 		if (this.combatants.length === 0) return;
 		if (!this.started) this.started = true;
 
@@ -512,9 +611,10 @@ class CoCBattleView extends ItemView {
 		this.renderCombatants();
 		this.renderTurnTools();
 		this.renderActiveStatblock();
+		await this.saveState();
 	}
 
-	private clearCombat() {
+	private async clearCombat() {
 		this.combatants = [];
 		this.activeIndex = -1;
 		this.round = 1;
@@ -523,6 +623,7 @@ class CoCBattleView extends ItemView {
 		this.renderCombatants();
 		this.renderTurnTools();
 		this.renderActiveStatblock();
+		await this.saveState();
 	}
 
 	private getMajorWoundThreshold(c: Combatant): number {
@@ -589,6 +690,7 @@ class CoCBattleView extends ItemView {
 				this.renderCombatants();
 				this.renderTurnTools();
 				this.renderActiveStatblock();
+				void this.saveState();
 			};
 
 			const top = row.createDiv({ cls: "coc-battle-row-top" });
@@ -657,26 +759,26 @@ class CoCBattleView extends ItemView {
 			damageBtn.onclick = (e) => {
 				e.stopPropagation();
 				new NumberInputModal(this.app, "Add Damage", "Apply", (value) => {
-					this.applyDamage(index, value);
+					void this.applyDamage(index, value);
 				}).open();
 			};
 
 			healBtn.onclick = (e) => {
 				e.stopPropagation();
 				new NumberInputModal(this.app, "Heal", "Apply", (value) => {
-					this.applyHeal(index, value);
+					void this.applyHeal(index, value);
 				}).open();
 			};
 
 			woundBtn.onclick = (e) => {
 				e.stopPropagation();
-				this.toggleMajorWound(index);
+				void this.toggleMajorWound(index);
 			};
 
 			insanityBtn.onclick = (e) => {
 				e.stopPropagation();
 				if (combatant.temporaryInsanity) {
-					this.clearInsanity(index);
+					void this.clearInsanity(index);
 				} else {
 					this.openInsanityModal(index);
 				}
@@ -684,12 +786,12 @@ class CoCBattleView extends ItemView {
 
 			removeBtn.onclick = (e) => {
 				e.stopPropagation();
-				this.removeCombatant(index);
+				void this.removeCombatant(index);
 			};
 		});
 	}
 
-	private applyDamage(index: number, amount: number) {
+	private async applyDamage(index: number, amount: number) {
 		const c = this.combatants[index];
 		if (!c) return;
 
@@ -702,9 +804,10 @@ class CoCBattleView extends ItemView {
 		this.renderCombatants();
 		this.renderTurnTools();
 		this.renderActiveStatblock();
+		await this.saveState();
 	}
 
-	private applyHeal(index: number, amount: number) {
+	private async applyHeal(index: number, amount: number) {
 		const c = this.combatants[index];
 		if (!c) return;
 
@@ -713,9 +816,10 @@ class CoCBattleView extends ItemView {
 		this.renderCombatants();
 		this.renderTurnTools();
 		this.renderActiveStatblock();
+		await this.saveState();
 	}
 
-	private toggleMajorWound(index: number) {
+	private async toggleMajorWound(index: number) {
 		const c = this.combatants[index];
 		if (!c) return;
 
@@ -724,6 +828,7 @@ class CoCBattleView extends ItemView {
 		this.renderCombatants();
 		this.renderTurnTools();
 		this.renderActiveStatblock();
+		await this.saveState();
 	}
 
 	private openInsanityModal(index: number) {
@@ -739,10 +844,11 @@ class CoCBattleView extends ItemView {
 			this.renderCombatants();
 			this.renderTurnTools();
 			this.renderActiveStatblock();
+			void this.saveState();
 		}).open();
 	}
 
-	private clearInsanity(index: number) {
+	private async clearInsanity(index: number) {
 		const c = this.combatants[index];
 		if (!c) return;
 
@@ -751,9 +857,10 @@ class CoCBattleView extends ItemView {
 		this.renderCombatants();
 		this.renderTurnTools();
 		this.renderActiveStatblock();
+		await this.saveState();
 	}
 
-	private removeCombatant(index: number) {
+	private async removeCombatant(index: number) {
 		this.combatants.splice(index, 1);
 
 		if (this.combatants.length === 0) {
@@ -767,6 +874,7 @@ class CoCBattleView extends ItemView {
 		this.renderCombatants();
 		this.renderTurnTools();
 		this.renderActiveStatblock();
+		await this.saveState();
 	}
 
 	private renderTurnTools() {
@@ -828,27 +936,27 @@ class CoCBattleView extends ItemView {
 			text: c.temporaryInsanity ? "Clear Insanity" : "Set Insanity",
 		});
 
-		minus1.onclick = () => this.changeHp(-1);
-		minusD3.onclick = () => this.changeHp(-this.rollDie(3));
-		minusD6.onclick = () => this.changeHp(-this.rollDie(6));
+		minus1.onclick = () => void this.changeHp(-1);
+		minusD3.onclick = () => void this.changeHp(-this.rollDie(3));
+		minusD6.onclick = () => void this.changeHp(-this.rollDie(6));
 		manualDmg.onclick = () =>
 			new NumberInputModal(this.app, "Add Damage", "Apply", (value) =>
-				this.changeHp(-value, true)
+				void this.changeHp(-value, true)
 			).open();
 
-		heal1.onclick = () => this.changeHp(1);
+		heal1.onclick = () => void this.changeHp(1);
 		manualHeal.onclick = () =>
 			new NumberInputModal(this.app, "Heal", "Apply", (value) =>
-				this.changeHp(value)
+				void this.changeHp(value)
 			).open();
 
 		woundToggle.onclick = () => {
-			this.toggleMajorWound(this.activeIndex);
+			void this.toggleMajorWound(this.activeIndex);
 		};
 
 		insanityToggle.onclick = () => {
 			if (c.temporaryInsanity) {
-				this.clearInsanity(this.activeIndex);
+				void this.clearInsanity(this.activeIndex);
 			} else {
 				this.openInsanityModal(this.activeIndex);
 			}
@@ -870,7 +978,7 @@ class CoCBattleView extends ItemView {
 		}
 	}
 
-	private changeHp(delta: number, treatAsSingleHit = false) {
+	private async changeHp(delta: number, treatAsSingleHit = false) {
 		if (this.activeIndex < 0 || !this.combatants[this.activeIndex]) return;
 
 		const c = this.combatants[this.activeIndex];
@@ -884,6 +992,7 @@ class CoCBattleView extends ItemView {
 		this.renderCombatants();
 		this.renderTurnTools();
 		this.renderActiveStatblock();
+		await this.saveState();
 	}
 
 	private async renderActiveStatblock() {

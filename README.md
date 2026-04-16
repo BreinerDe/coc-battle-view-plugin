@@ -1,6 +1,6 @@
 # CoC Battle View
 
-A small Obsidian plugin scaffold for Call of Cthulhu combats.
+A small Obsidian plugin scaffold for Call of Cthulhu 7e combats.
 
 ## What it does
 
@@ -11,6 +11,9 @@ A small Obsidian plugin scaffold for Call of Cthulhu combats.
 - Tracks rounds and current turn
 - Lets you subtract or heal HP without changing the original note
 - Renders the **original markdown note** in the center panel so your real statblock remains visible
+- Applies rules for wounds, death and unconsciousness and lables these states
+- Lets you apply Insanity and display an insanity lable for X rounds
+
 
 ## Expected statblock format
 
@@ -25,7 +28,7 @@ sanity: 60
 move: 8
 damage bonus: "+1D4"
 combat:
-  - name: "Dolch"
+  - name: "Dagger"
     desc: "50%, Schaden 1D4+DB"
   - name: "Dodge"
     desc: "35%"
