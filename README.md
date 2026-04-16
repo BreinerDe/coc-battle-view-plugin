@@ -14,6 +14,7 @@ A small Obsidian plugin scaffold for Call of Cthulhu 7e combats.
 - Applies rules for wounds, death and unconsciousness and lables these states
 - Lets you apply Insanity and display an insanity lable for X rounds
 
+![alt text](image.png)
 
 ## Expected statblock format
 

@@ -230,14 +230,6 @@ class InsanityModal extends Modal {
 			this.close();
 		};
 
-		labelInput.addEventListener("keydown", (e) => {
-			if (e.key === "Enter") durationInput.focus();
-		});
-
-		durationInput.addEventListener("keydown", (e) => {
-			if (e.key === "Enter") applyBtn.click();
-		});
-
 		labelInput.focus();
 	}
 
@@ -256,7 +248,6 @@ class CoCBattleView extends ItemView {
 
 	private combatantsEl!: HTMLDivElement;
 	private activeStatblockEl!: HTMLDivElement;
-	private turnToolsEl!: HTMLDivElement;
 	private roundEl!: HTMLDivElement;
 	private dropZoneEl!: HTMLDivElement;
 
@@ -282,10 +273,6 @@ class CoCBattleView extends ItemView {
 			await this.restoreState(this.plugin.state);
 		}
 		this.render();
-	}
-
-	async onClose() {
-		// nothing
 	}
 
 	private async saveState() {
@@ -362,11 +349,10 @@ class CoCBattleView extends ItemView {
 		container.empty();
 		container.addClass("coc-battle-root");
 
-		const layout = container.createDiv({ cls: "coc-battle-layout" });
+		const layout = container.createDiv({ cls: "coc-battle-layout two-col" });
 
 		const left = layout.createDiv({ cls: "coc-battle-panel coc-battle-left" });
 		const center = layout.createDiv({ cls: "coc-battle-panel coc-battle-center" });
-		const right = layout.createDiv({ cls: "coc-battle-panel coc-battle-right" });
 
 		left.createEl("h1", { text: "Combatants", cls: "coc-battle-title" });
 
@@ -379,11 +365,13 @@ class CoCBattleView extends ItemView {
 		const nextBtn = buttonRow.createEl("button", { text: "Next" });
 		const prevBtn = buttonRow.createEl("button", { text: "Prev" });
 		const clearBtn = buttonRow.createEl("button", { text: "Clear" });
+		const addActiveBtn = buttonRow.createEl("button", { text: "Add Active Note" });
 
 		startBtn.onclick = async () => this.startCombat();
 		nextBtn.onclick = async () => this.nextTurn();
 		prevBtn.onclick = async () => this.prevTurn();
 		clearBtn.onclick = async () => this.clearCombat();
+		addActiveBtn.onclick = async () => this.addActiveNote();
 
 		this.roundEl = left.createDiv({ cls: "coc-battle-round" });
 		this.roundEl.setText(`Round ${this.round}`);
@@ -394,13 +382,8 @@ class CoCBattleView extends ItemView {
 		this.activeStatblockEl = center.createDiv({ cls: "coc-battle-active-statblock" });
 		this.activeStatblockEl.setText("Select or add a combatant.");
 
-		right.createEl("h1", { text: "Turn Tools", cls: "coc-battle-title" });
-		this.turnToolsEl = right.createDiv({ cls: "coc-battle-turn-tools" });
-		this.turnToolsEl.setText("Select a combatant to edit HP.");
-
 		this.bindDropHandlers();
 		this.renderCombatants();
-		this.renderTurnTools();
 		this.renderActiveStatblock();
 	}
 
@@ -447,9 +430,7 @@ class CoCBattleView extends ItemView {
 		}
 
 		const active = this.app.workspace.getActiveFile();
-		if (active && active.extension === "md") {
-			return active;
-		}
+		if (active && active.extension === "md") return active;
 
 		return null;
 	}
@@ -459,9 +440,7 @@ class CoCBattleView extends ItemView {
 
 		try {
 			cleaned = decodeURIComponent(cleaned);
-		} catch {
-			// ignore
-		}
+		} catch {}
 
 		const wikiMatch = cleaned.match(/^\[\[(.+?)\]\]$/);
 		if (wikiMatch) {
@@ -514,10 +493,8 @@ class CoCBattleView extends ItemView {
 			return;
 		}
 
-		const id = `${file.path}::${Date.now()}`;
-
 		const combatant: Combatant = {
-			id,
+			id: `${file.path}::${Date.now()}`,
 			filePath: file.path,
 			fileName: file.basename,
 			name: parsed.name || file.basename,
@@ -537,14 +514,10 @@ class CoCBattleView extends ItemView {
 		this.combatants.push(combatant);
 		this.sortCombatants();
 
-		if (this.activeIndex === -1) {
-			this.activeIndex = 0;
-		} else {
-			this.activeIndex = this.combatants.findIndex((c) => c.id === combatant.id);
-		}
+		if (this.activeIndex === -1) this.activeIndex = 0;
+		else this.activeIndex = this.combatants.findIndex((c) => c.id === combatant.id);
 
 		this.renderCombatants();
-		this.renderTurnTools();
 		this.renderActiveStatblock();
 		await this.saveState();
 	}
@@ -573,7 +546,6 @@ class CoCBattleView extends ItemView {
 		this.expireRoundEffects();
 
 		this.renderCombatants();
-		this.renderTurnTools();
 		this.renderActiveStatblock();
 		await this.saveState();
 	}
@@ -583,7 +555,6 @@ class CoCBattleView extends ItemView {
 		if (!this.started) this.started = true;
 
 		this.activeIndex++;
-
 		if (this.activeIndex >= this.combatants.length) {
 			this.activeIndex = 0;
 			this.round++;
@@ -591,7 +562,6 @@ class CoCBattleView extends ItemView {
 		}
 
 		this.renderCombatants();
-		this.renderTurnTools();
 		this.renderActiveStatblock();
 		await this.saveState();
 	}
@@ -601,7 +571,6 @@ class CoCBattleView extends ItemView {
 		if (!this.started) this.started = true;
 
 		this.activeIndex--;
-
 		if (this.activeIndex < 0) {
 			this.activeIndex = this.combatants.length - 1;
 			this.round = Math.max(1, this.round - 1);
@@ -609,7 +578,6 @@ class CoCBattleView extends ItemView {
 		}
 
 		this.renderCombatants();
-		this.renderTurnTools();
 		this.renderActiveStatblock();
 		await this.saveState();
 	}
@@ -621,7 +589,6 @@ class CoCBattleView extends ItemView {
 		this.started = false;
 
 		this.renderCombatants();
-		this.renderTurnTools();
 		this.renderActiveStatblock();
 		await this.saveState();
 	}
@@ -663,6 +630,83 @@ class CoCBattleView extends ItemView {
 		}
 	}
 
+	private async applyDamage(index: number, amount: number) {
+		const c = this.combatants[index];
+		if (!c) return;
+
+		if (amount >= this.getMajorWoundThreshold(c)) c.majorWound = true;
+		c.currentHp = Math.max(-c.maxHp, c.currentHp - amount);
+
+		this.renderCombatants();
+		this.renderActiveStatblock();
+		await this.saveState();
+	}
+
+	private async applyHeal(index: number, amount: number) {
+		const c = this.combatants[index];
+		if (!c) return;
+
+		c.currentHp = Math.min(c.maxHp, c.currentHp + amount);
+
+		this.renderCombatants();
+		this.renderActiveStatblock();
+		await this.saveState();
+	}
+
+	private async toggleMajorWound(index: number) {
+		const c = this.combatants[index];
+		if (!c) return;
+
+		c.majorWound = !c.majorWound;
+
+		this.renderCombatants();
+		this.renderActiveStatblock();
+		await this.saveState();
+	}
+
+	private openInsanityModal(index: number) {
+		new InsanityModal(this.app, this.round, (label, duration) => {
+			const c = this.combatants[index];
+			if (!c) return;
+
+			c.temporaryInsanity = {
+				label,
+				untilRound: this.round + duration,
+			};
+
+			this.renderCombatants();
+			this.renderActiveStatblock();
+			void this.saveState();
+		}).open();
+	}
+
+	private async clearInsanity(index: number) {
+		const c = this.combatants[index];
+		if (!c) return;
+
+		c.temporaryInsanity = null;
+
+		this.renderCombatants();
+		this.renderActiveStatblock();
+		await this.saveState();
+	}
+
+	private async removeCombatant(index: number) {
+		this.combatants.splice(index, 1);
+
+		if (this.combatants.length === 0) {
+			this.activeIndex = -1;
+			this.started = false;
+			this.round = 1;
+		} else if (this.activeIndex >= this.combatants.length) {
+			this.activeIndex = this.combatants.length - 1;
+		}
+
+		this.renderCombatants();
+		this.renderActiveStatblock();
+		await this.saveState();
+	}
+
 	private renderCombatants() {
 		this.combatantsEl.empty();
 		this.roundEl.setText(`Round ${this.round}`);
@@ -677,18 +721,14 @@ class CoCBattleView extends ItemView {
 
 			const row = this.combatantsEl.createDiv({ cls: "coc-battle-combatant-row" });
 
-			if (index === this.activeIndex && this.started) {
-				row.addClass("is-active");
-			}
-
-			if (status !== "normal") {
-				row.addClass(`status-${status}`);
-			}
+			if (combatant.majorWound) row.addClass("has-major-wound");
+			if (combatant.temporaryInsanity) row.addClass("has-insanity");
+			if (status !== "normal") row.addClass(`status-${status}`);
+			if (index === this.activeIndex && this.started) row.addClass("is-active");
 
 			row.onclick = () => {
 				this.activeIndex = index;
 				this.renderCombatants();
-				this.renderTurnTools();
 				this.renderActiveStatblock();
 				void this.saveState();
 			};
@@ -710,13 +750,10 @@ class CoCBattleView extends ItemView {
 			const badges = nameWrap.createDiv({ cls: "coc-battle-badges" });
 
 			if (combatant.majorWound) {
-				const mw = badges.createSpan({
+				badges.createSpan({
 					text: "🩹 Major Wound",
 					cls: "coc-battle-badge major-wound",
 				});
-				mw.title = `Triggered by a single hit of ${this.getMajorWoundThreshold(
-					combatant
-				)}+ damage`;
 			}
 
 			if (combatant.temporaryInsanity) {
@@ -777,11 +814,8 @@ class CoCBattleView extends ItemView {
 
 			insanityBtn.onclick = (e) => {
 				e.stopPropagation();
-				if (combatant.temporaryInsanity) {
-					void this.clearInsanity(index);
-				} else {
-					this.openInsanityModal(index);
-				}
+				if (combatant.temporaryInsanity) void this.clearInsanity(index);
+				else this.openInsanityModal(index);
 			};
 
 			removeBtn.onclick = (e) => {
@@ -789,210 +823,6 @@ class CoCBattleView extends ItemView {
 				void this.removeCombatant(index);
 			};
 		});
-	}
-
-	private async applyDamage(index: number, amount: number) {
-		const c = this.combatants[index];
-		if (!c) return;
-
-		if (amount >= this.getMajorWoundThreshold(c)) {
-			c.majorWound = true;
-		}
-
-		c.currentHp = Math.max(-c.maxHp, c.currentHp - amount);
-
-		this.renderCombatants();
-		this.renderTurnTools();
-		this.renderActiveStatblock();
-		await this.saveState();
-	}
-
-	private async applyHeal(index: number, amount: number) {
-		const c = this.combatants[index];
-		if (!c) return;
-
-		c.currentHp = Math.min(c.maxHp, c.currentHp + amount);
-
-		this.renderCombatants();
-		this.renderTurnTools();
-		this.renderActiveStatblock();
-		await this.saveState();
-	}
-
-	private async toggleMajorWound(index: number) {
-		const c = this.combatants[index];
-		if (!c) return;
-
-		c.majorWound = !c.majorWound;
-
-		this.renderCombatants();
-		this.renderTurnTools();
-		this.renderActiveStatblock();
-		await this.saveState();
-	}
-
-	private openInsanityModal(index: number) {
-		new InsanityModal(this.app, this.round, (label, duration) => {
-			const c = this.combatants[index];
-			if (!c) return;
-
-			c.temporaryInsanity = {
-				label,
-				untilRound: this.round + duration,
-			};
-
-			this.renderCombatants();
-			this.renderTurnTools();
-			this.renderActiveStatblock();
-			void this.saveState();
-		}).open();
-	}
-
-	private async clearInsanity(index: number) {
-		const c = this.combatants[index];
-		if (!c) return;
-
-		c.temporaryInsanity = null;
-
-		this.renderCombatants();
-		this.renderTurnTools();
-		this.renderActiveStatblock();
-		await this.saveState();
-	}
-
-	private async removeCombatant(index: number) {
-		this.combatants.splice(index, 1);
-
-		if (this.combatants.length === 0) {
-			this.activeIndex = -1;
-			this.started = false;
-			this.round = 1;
-		} else if (this.activeIndex >= this.combatants.length) {
-			this.activeIndex = this.combatants.length - 1;
-		}
-
-		this.renderCombatants();
-		this.renderTurnTools();
-		this.renderActiveStatblock();
-		await this.saveState();
-	}
-
-	private renderTurnTools() {
-		this.turnToolsEl.empty();
-
-		if (this.activeIndex < 0 || !this.combatants[this.activeIndex]) {
-			this.turnToolsEl.setText("Select a combatant to edit HP.");
-			return;
-		}
-
-		const c = this.combatants[this.activeIndex];
-		const status = this.getStatus(c);
-
-		this.turnToolsEl.createEl("h2", {
-			text: c.name,
-			cls: "coc-battle-turn-name",
-		});
-
-		const badges = this.turnToolsEl.createDiv({ cls: "coc-battle-turn-badges" });
-
-		if (c.majorWound) {
-			badges.createSpan({
-				text: "🩹 Major Wound",
-				cls: "coc-battle-badge major-wound",
-			});
-		}
-
-		if (c.temporaryInsanity) {
-			badges.createSpan({
-				text: `🌀 ${c.temporaryInsanity.label} (bis R${c.temporaryInsanity.untilRound})`,
-				cls: "coc-battle-badge insanity",
-			});
-		}
-
-		if (status !== "normal") {
-			badges.createSpan({
-				text: `${this.getStatusIcon(status)} ${this.getStatusLabel(status)}`,
-				cls: `coc-battle-badge status ${status}`,
-			});
-		}
-
-		this.turnToolsEl.createDiv({
-			text: `HP ${c.currentHp}/${c.maxHp}`,
-			cls: "coc-battle-turn-hp",
-		});
-
-		const controls = this.turnToolsEl.createDiv({ cls: "coc-battle-hp-controls" });
-
-		const minus1 = controls.createEl("button", { text: "-1" });
-		const minusD3 = controls.createEl("button", { text: "-1d3" });
-		const minusD6 = controls.createEl("button", { text: "-1d6" });
-		const manualDmg = controls.createEl("button", { text: "Damage..." });
-		const heal1 = controls.createEl("button", { text: "+1" });
-		const manualHeal = controls.createEl("button", { text: "Heal..." });
-		const woundToggle = controls.createEl("button", {
-			text: c.majorWound ? "Clear Wound" : "Set Wound",
-		});
-		const insanityToggle = controls.createEl("button", {
-			text: c.temporaryInsanity ? "Clear Insanity" : "Set Insanity",
-		});
-
-		minus1.onclick = () => void this.changeHp(-1);
-		minusD3.onclick = () => void this.changeHp(-this.rollDie(3));
-		minusD6.onclick = () => void this.changeHp(-this.rollDie(6));
-		manualDmg.onclick = () =>
-			new NumberInputModal(this.app, "Add Damage", "Apply", (value) =>
-				void this.changeHp(-value, true)
-			).open();
-
-		heal1.onclick = () => void this.changeHp(1);
-		manualHeal.onclick = () =>
-			new NumberInputModal(this.app, "Heal", "Apply", (value) =>
-				void this.changeHp(value)
-			).open();
-
-		woundToggle.onclick = () => {
-			void this.toggleMajorWound(this.activeIndex);
-		};
-
-		insanityToggle.onclick = () => {
-			if (c.temporaryInsanity) {
-				void this.clearInsanity(this.activeIndex);
-			} else {
-				this.openInsanityModal(this.activeIndex);
-			}
-		};
-
-		if (c.attacks.length > 0) {
-			this.turnToolsEl.createEl("h3", {
-				text: "Attacks",
-				cls: "coc-battle-subtitle",
-			});
-
-			const attackList = this.turnToolsEl.createDiv({ cls: "coc-battle-attack-list" });
-
-			c.attacks.forEach((atk) => {
-				const atkRow = attackList.createDiv({ cls: "coc-battle-attack-row" });
-				atkRow.createEl("strong", { text: atk.name });
-				atkRow.createEl("div", { text: atk.desc });
-			});
-		}
-	}
-
-	private async changeHp(delta: number, treatAsSingleHit = false) {
-		if (this.activeIndex < 0 || !this.combatants[this.activeIndex]) return;
-
-		const c = this.combatants[this.activeIndex];
-
-		if (delta < 0 && treatAsSingleHit && Math.abs(delta) >= this.getMajorWoundThreshold(c)) {
-			c.majorWound = true;
-		}
-
-		c.currentHp = Math.max(-c.maxHp, Math.min(c.maxHp, c.currentHp + delta));
-
-		this.renderCombatants();
-		this.renderTurnTools();
-		this.renderActiveStatblock();
-		await this.saveState();
 	}
 
 	private async renderActiveStatblock() {
@@ -1009,11 +839,6 @@ class CoCBattleView extends ItemView {
 		const noteWrapper = this.activeStatblockEl.createDiv({
 			cls: "coc-battle-note-wrapper",
 		});
-
-		if (!c.rawStatblock?.trim()) {
-			noteWrapper.setText("No statblock found.");
-			return;
-		}
 
 		const stateBar = noteWrapper.createDiv({ cls: "coc-battle-statebar" });
 		stateBar.createSpan({
@@ -1042,22 +867,46 @@ class CoCBattleView extends ItemView {
 			});
 		}
 
-		const fakeMarkdown = [
-			"```statblock",
-			c.rawStatblock.trim(),
-			"```",
-		].join("\n");
+		const controls = noteWrapper.createDiv({ cls: "coc-battle-inline-controls" });
 
-		await MarkdownRenderer.renderMarkdown(
-			fakeMarkdown,
-			noteWrapper,
-			c.filePath,
-			null
-		);
-	}
+		const damageBtn = controls.createEl("button", { text: "Damage" });
+		const healBtn = controls.createEl("button", { text: "Heal" });
+		const woundBtn = controls.createEl("button", {
+			text: c.majorWound ? "Clear Wound" : "Set Wound",
+		});
+		const insanityBtn = controls.createEl("button", {
+			text: c.temporaryInsanity ? "Clear Insanity" : "Set Insanity",
+		});
+		const prevBtn = controls.createEl("button", { text: "Prev" });
+		const nextBtn = controls.createEl("button", { text: "Next" });
 
-	private rollDie(sides: number): number {
-		return Math.floor(Math.random() * sides) + 1;
+		damageBtn.onclick = () =>
+			new NumberInputModal(this.app, "Add Damage", "Apply", (value) => {
+				void this.applyDamage(this.activeIndex, value);
+			}).open();
+
+		healBtn.onclick = () =>
+			new NumberInputModal(this.app, "Heal", "Apply", (value) => {
+				void this.applyHeal(this.activeIndex, value);
+			}).open();
+
+		woundBtn.onclick = () => void this.toggleMajorWound(this.activeIndex);
+
+		insanityBtn.onclick = () => {
+			if (c.temporaryInsanity) void this.clearInsanity(this.activeIndex);
+			else this.openInsanityModal(this.activeIndex);
+		};
+
+		prevBtn.onclick = () => void this.prevTurn();
+		nextBtn.onclick = () => void this.nextTurn();
+
+		if (!c.rawStatblock?.trim()) {
+			noteWrapper.createEl("p", { text: "No statblock found." });
+			return;
+		}
+
+		const fakeMarkdown = ["```statblock", c.rawStatblock.trim(), "```"].join("\n");
+		await MarkdownRenderer.renderMarkdown(fakeMarkdown, noteWrapper, c.filePath, null);
 	}
 
 	private parseStatblock(content: string): {
