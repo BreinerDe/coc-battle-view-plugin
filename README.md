@@ -19,22 +19,7 @@ A small Obsidian plugin scaffold for Call of Cthulhu 7e combats.
 ## Expected statblock format
 
 The parser expects a code block like:
-
-```statblock
-name: "Étienne Vallois"
-characteristics:
-  - dex: 70
-hp: 12
-sanity: 60
-move: 8
-damage bonus: "+1D4"
-combat:
-  - name: "Dagger"
-    desc: "50%, Schaden 1D4+DB"
-  - name: "Dodge"
-    desc: "35%"
-```
-
+![alt text](image-1.png)
 ## build 
 ```npm build```
 
