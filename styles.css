@@ -308,3 +308,16 @@
 		grid-template-columns: 1fr;
 	}
 }
+.coc-battle-badge.player,
+.coc-battle-statebar-item.player {
+	border-color: #6fd3c1;
+	color: #aef3e8;
+}
+
+.coc-battle-combatant-row.is-player {
+	border-left: 4px solid color-mix(in srgb, #6fd3c1 70%, transparent);
+}
+
+.coc-battle-combatant-row.is-player .coc-battle-name {
+	text-shadow: 0 0 10px color-mix(in srgb, #6fd3c1 18%, transparent);
+}

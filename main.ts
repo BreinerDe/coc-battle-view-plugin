@@ -39,6 +39,7 @@ interface Combatant {
 	rawStatblock: string;
 	majorWound: boolean;
 	temporaryInsanity?: TemporaryInsanity | null;
+	isPlayer: boolean;
 }
 
 interface PersistedCombatant {
@@ -54,6 +55,7 @@ interface PersistedCombatant {
 	damageBonus?: string;
 	majorWound: boolean;
 	temporaryInsanity?: TemporaryInsanity | null;
+	isPlayer: boolean;
 }
 
 interface BattleState {
@@ -274,6 +276,9 @@ class CoCBattleView extends ItemView {
 		}
 		this.render();
 	}
+	private isPlayerFile(file: TFile): boolean {
+		return file.path.includes("player");	
+	}
 
 	private async saveState() {
 		const state: BattleState = {
@@ -290,6 +295,7 @@ class CoCBattleView extends ItemView {
 				damageBonus: c.damageBonus,
 				majorWound: c.majorWound,
 				temporaryInsanity: c.temporaryInsanity ?? null,
+				isPlayer: c.isPlayer,
 			})),
 			activeIndex: this.activeIndex,
 			round: this.round,
@@ -327,6 +333,7 @@ class CoCBattleView extends ItemView {
 				rawNote: content,
 				rawStatblock: parsed.rawStatblock ?? "",
 				attacks: parsed.attacks ?? [],
+				isPlayer: this.isPlayerFile(file),
 			});
 		}
 
@@ -509,6 +516,7 @@ class CoCBattleView extends ItemView {
 			rawStatblock: parsed.rawStatblock ?? "",
 			majorWound: false,
 			temporaryInsanity: null,
+			isPlayer: this.isPlayerFile(file),
 		};
 
 		this.combatants.push(combatant);
@@ -583,10 +591,18 @@ class CoCBattleView extends ItemView {
 	}
 
 	private async clearCombat() {
-		this.combatants = [];
-		this.activeIndex = -1;
+		const players = this.combatants.filter((c) => c.isPlayer);
+
+		this.combatants = players;
 		this.round = 1;
 		this.started = false;
+
+		if (this.combatants.length === 0) {
+			this.activeIndex = -1;
+		} else {
+			this.sortCombatants();
+			this.activeIndex = 0;
+		}
 
 		this.renderCombatants();
 		this.renderActiveStatblock();
@@ -720,6 +736,7 @@ class CoCBattleView extends ItemView {
 			const status = this.getStatus(combatant);
 
 			const row = this.combatantsEl.createDiv({ cls: "coc-battle-combatant-row" });
+			if (combatant.isPlayer) row.addClass("is-player");
 
 			if (combatant.majorWound) row.addClass("has-major-wound");
 			if (combatant.temporaryInsanity) row.addClass("has-insanity");
@@ -748,6 +765,12 @@ class CoCBattleView extends ItemView {
 			nameWrap.createSpan({ text: combatant.name, cls: "coc-battle-name" });
 
 			const badges = nameWrap.createDiv({ cls: "coc-battle-badges" });
+			if (combatant.isPlayer) {
+			badges.createSpan({
+				text: "👤 Player",
+				cls: "coc-battle-badge player",
+				});
+			}
 
 			if (combatant.majorWound) {
 				badges.createSpan({

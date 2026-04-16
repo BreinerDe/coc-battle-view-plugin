@@ -3,7 +3,7 @@
 A small Obsidian plugin scaffold for Call of Cthulhu 7e combats.
 
 ## What it does
-
+ 
 - Opens a **Battle View** tab
 - Lets you **drag markdown notes** with a `statblock` code fence into the view
 - Parses the `name`, `dex`, `hp`, and `combat` entries from the statblock
@@ -13,6 +13,7 @@ A small Obsidian plugin scaffold for Call of Cthulhu 7e combats.
 - Renders the **original markdown note** in the center panel so your real statblock remains visible
 - Applies rules for wounds, death and unconsciousness and lables these states
 - Lets you apply Insanity and display an insanity lable for X rounds
+- Is keeping players in the battelview permanently and labeling them as players if the statblock gets dropped into the view from a folder containing "player"
 
 ![alt text](image.png)
 
