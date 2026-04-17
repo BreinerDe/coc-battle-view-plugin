@@ -40,6 +40,7 @@ interface Combatant {
 	majorWound: boolean;
 	temporaryInsanity?: TemporaryInsanity | null;
 	isPlayer: boolean;
+	weaponDrawn: boolean;
 }
 
 interface PersistedCombatant {
@@ -56,6 +57,7 @@ interface PersistedCombatant {
 	majorWound: boolean;
 	temporaryInsanity?: TemporaryInsanity | null;
 	isPlayer: boolean;
+	weaponDrawn: boolean;
 }
 
 interface BattleState {
@@ -191,7 +193,7 @@ class InsanityModal extends Modal {
 
 		const labelInput = contentEl.createEl("input", {
 			type: "text",
-			placeholder: "z. B. Raserei, Panische Flucht, Erstarren",
+			placeholder: "e.g. Rage, Paranoia, Faint",
 		});
 		labelInput.addClass("coc-battle-modal-input");
 
@@ -296,6 +298,7 @@ class CoCBattleView extends ItemView {
 				majorWound: c.majorWound,
 				temporaryInsanity: c.temporaryInsanity ?? null,
 				isPlayer: c.isPlayer,
+				weaponDrawn: c.weaponDrawn,
 			})),
 			activeIndex: this.activeIndex,
 			round: this.round,
@@ -334,6 +337,7 @@ class CoCBattleView extends ItemView {
 				rawStatblock: parsed.rawStatblock ?? "",
 				attacks: parsed.attacks ?? [],
 				isPlayer: this.isPlayerFile(file),
+				weaponDrawn: saved.weaponDrawn ?? false,
 			});
 		}
 
@@ -372,13 +376,13 @@ class CoCBattleView extends ItemView {
 		const nextBtn = buttonRow.createEl("button", { text: "Next" });
 		const prevBtn = buttonRow.createEl("button", { text: "Prev" });
 		const clearBtn = buttonRow.createEl("button", { text: "Clear" });
-		const addActiveBtn = buttonRow.createEl("button", { text: "Add Active Note" });
+		// const addActiveBtn = buttonRow.createEl("button", { text: "Add Active Note" });
 
 		startBtn.onclick = async () => this.startCombat();
 		nextBtn.onclick = async () => this.nextTurn();
 		prevBtn.onclick = async () => this.prevTurn();
 		clearBtn.onclick = async () => this.clearCombat();
-		addActiveBtn.onclick = async () => this.addActiveNote();
+		// addActiveBtn.onclick = async () => this.addActiveNote();
 
 		this.roundEl = left.createDiv({ cls: "coc-battle-round" });
 		this.roundEl.setText(`Round ${this.round}`);
@@ -517,6 +521,7 @@ class CoCBattleView extends ItemView {
 			majorWound: false,
 			temporaryInsanity: null,
 			isPlayer: this.isPlayerFile(file),
+			weaponDrawn: false
 		};
 
 		this.combatants.push(combatant);
@@ -529,9 +534,21 @@ class CoCBattleView extends ItemView {
 		this.renderActiveStatblock();
 		await this.saveState();
 	}
+	private getInitiativeValue(c: Combatant): number {
+	return c.dex + (c.weaponDrawn ? 50 : 0);
+	}
 
 	private sortCombatants() {
-		this.combatants.sort((a, b) => b.dex - a.dex);
+	const activeId =
+		this.activeIndex >= 0 && this.combatants[this.activeIndex]
+			? this.combatants[this.activeIndex].id
+			: null;
+
+	this.combatants.sort((a, b) => this.getInitiativeValue(b) - this.getInitiativeValue(a));
+
+	if (activeId) {
+		this.activeIndex = this.combatants.findIndex((c) => c.id === activeId);
+	}
 	}
 
 	private expireRoundEffects() {
@@ -591,8 +608,12 @@ class CoCBattleView extends ItemView {
 	}
 
 	private async clearCombat() {
-		const players = this.combatants.filter((c) => c.isPlayer);
-
+		const players = this.combatants
+		.filter((c) => c.isPlayer)
+		.map((c) => ({
+			...c,
+			weaponDrawn: false,
+		}));
 		this.combatants = players;
 		this.round = 1;
 		this.started = false;
@@ -663,7 +684,6 @@ class CoCBattleView extends ItemView {
 		if (!c) return;
 
 		c.currentHp = Math.min(c.maxHp, c.currentHp + amount);
-
 		this.renderCombatants();
 		this.renderActiveStatblock();
 		await this.saveState();
@@ -756,10 +776,12 @@ class CoCBattleView extends ItemView {
 			const right = top.createDiv({ cls: "coc-battle-row-right" });
 
 			const initBadge = left.createSpan({
-				text: `${combatant.dex}`,
+				text: `${this.getInitiativeValue(combatant)}`,
 				cls: "coc-battle-init",
 			});
-			initBadge.title = "DEX / initiative";
+			initBadge.title = combatant.weaponDrawn
+			? `DEX ${combatant.dex} + 50 (weapon drawn)`
+			: `DEX ${combatant.dex}`;
 
 			const nameWrap = left.createDiv({ cls: "coc-battle-name-wrap" });
 			nameWrap.createSpan({ text: combatant.name, cls: "coc-battle-name" });
@@ -771,6 +793,12 @@ class CoCBattleView extends ItemView {
 				cls: "coc-battle-badge player",
 				});
 			}
+			if (combatant.weaponDrawn) {
+			badges.createSpan({
+				text: "🔫 Weapon Drawn",
+				cls: "coc-battle-badge weapon-drawn",
+			});
+			}
 
 			if (combatant.majorWound) {
 				badges.createSpan({
@@ -781,7 +809,7 @@ class CoCBattleView extends ItemView {
 
 			if (combatant.temporaryInsanity) {
 				badges.createSpan({
-					text: `🌀 ${combatant.temporaryInsanity.label} (bis R${combatant.temporaryInsanity.untilRound})`,
+					text: `🌀 ${combatant.temporaryInsanity.label} (Until R${combatant.temporaryInsanity.untilRound})`,
 					cls: "coc-battle-badge insanity",
 				});
 			}
@@ -809,11 +837,14 @@ class CoCBattleView extends ItemView {
 				text: combatant.temporaryInsanity ? "Clear Insanity" : "Set Insanity",
 			});
 			const removeBtn = actionRow.createEl("button", { text: "Remove" });
-
+			const weaponBtn = actionRow.createEl("button", {
+				text: combatant.weaponDrawn ? "Holster" : "Weapon Drawn",
+			});
 			damageBtn.addClass("coc-battle-action-btn");
 			healBtn.addClass("coc-battle-action-btn");
 			woundBtn.addClass("coc-battle-action-btn");
 			insanityBtn.addClass("coc-battle-action-btn");
+			weaponBtn.addClass("coc-battle-action-btn");
 			removeBtn.addClass("coc-battle-action-btn", "danger");
 
 			damageBtn.onclick = (e) => {
@@ -840,12 +871,26 @@ class CoCBattleView extends ItemView {
 				if (combatant.temporaryInsanity) void this.clearInsanity(index);
 				else this.openInsanityModal(index);
 			};
-
+			weaponBtn.onclick = (e) => {
+				e.stopPropagation();
+				void this.toggleWeaponDrawn(index);
+			};
 			removeBtn.onclick = (e) => {
 				e.stopPropagation();
 				void this.removeCombatant(index);
 			};
 		});
+	}
+	private async toggleWeaponDrawn(index: number) {
+		const c = this.combatants[index];
+		if (!c) return;
+
+		c.weaponDrawn = !c.weaponDrawn;
+
+		this.sortCombatants();
+		this.renderCombatants();
+		this.renderActiveStatblock();
+		await this.saveState();
 	}
 
 	private async renderActiveStatblock() {
@@ -863,70 +908,70 @@ class CoCBattleView extends ItemView {
 			cls: "coc-battle-note-wrapper",
 		});
 
-		const stateBar = noteWrapper.createDiv({ cls: "coc-battle-statebar" });
-		stateBar.createSpan({
-			text: `Current HP: ${c.currentHp}/${c.maxHp}`,
-			cls: "coc-battle-statebar-item",
-		});
+		// const stateBar = noteWrapper.createDiv({ cls: "coc-battle-statebar" });
+		// stateBar.createSpan({
+		// 	text: `Current HP: ${c.currentHp}/${c.maxHp}`,
+		// 	cls: "coc-battle-statebar-item",
+		// });
 
-		if (c.majorWound) {
-			stateBar.createSpan({
-				text: "🩹 Major Wound",
-				cls: "coc-battle-statebar-item major-wound",
-			});
-		}
+		// if (c.majorWound) {
+		// 	stateBar.createSpan({
+		// 		text: "🩹 Major Wound",
+		// 		cls: "coc-battle-statebar-item major-wound",
+		// 	});
+		// }
 
-		if (c.temporaryInsanity) {
-			stateBar.createSpan({
-				text: `🌀 ${c.temporaryInsanity.label} (bis R${c.temporaryInsanity.untilRound})`,
-				cls: "coc-battle-statebar-item insanity",
-			});
-		}
+		// if (c.temporaryInsanity) {
+		// 	stateBar.createSpan({
+		// 		text: `🌀 ${c.temporaryInsanity.label} (bis R${c.temporaryInsanity.untilRound})`,
+		// 		cls: "coc-battle-statebar-item insanity",
+		// 	});
+		// }
 
-		if (status !== "normal") {
-			stateBar.createSpan({
-				text: `${this.getStatusIcon(status)} ${this.getStatusLabel(status)}`,
-				cls: `coc-battle-statebar-item status ${status}`,
-			});
-		}
+		// if (status !== "normal") {
+		// 	stateBar.createSpan({
+		// 		text: `${this.getStatusIcon(status)} ${this.getStatusLabel(status)}`,
+		// 		cls: `coc-battle-statebar-item status ${status}`,
+		// 	});
+		// }
 
-		const controls = noteWrapper.createDiv({ cls: "coc-battle-inline-controls" });
+		// const controls = noteWrapper.createDiv({ cls: "coc-battle-inline-controls" });
 
-		const damageBtn = controls.createEl("button", { text: "Damage" });
-		const healBtn = controls.createEl("button", { text: "Heal" });
-		const woundBtn = controls.createEl("button", {
-			text: c.majorWound ? "Clear Wound" : "Set Wound",
-		});
-		const insanityBtn = controls.createEl("button", {
-			text: c.temporaryInsanity ? "Clear Insanity" : "Set Insanity",
-		});
-		const prevBtn = controls.createEl("button", { text: "Prev" });
-		const nextBtn = controls.createEl("button", { text: "Next" });
+		// const damageBtn = controls.createEl("button", { text: "Damage" });
+		// const healBtn = controls.createEl("button", { text: "Heal" });
+		// const woundBtn = controls.createEl("button", {
+		// 	text: c.majorWound ? "Clear Wound" : "Set Wound",
+		// });
+		// const insanityBtn = controls.createEl("button", {
+		// 	text: c.temporaryInsanity ? "Clear Insanity" : "Set Insanity",
+		// });
+		// const prevBtn = controls.createEl("button", { text: "Prev" });
+		// const nextBtn = controls.createEl("button", { text: "Next" });
 
-		damageBtn.onclick = () =>
-			new NumberInputModal(this.app, "Add Damage", "Apply", (value) => {
-				void this.applyDamage(this.activeIndex, value);
-			}).open();
+		// damageBtn.onclick = () =>
+		// 	new NumberInputModal(this.app, "Add Damage", "Apply", (value) => {
+		// 		void this.applyDamage(this.activeIndex, value);
+		// 	}).open();
 
-		healBtn.onclick = () =>
-			new NumberInputModal(this.app, "Heal", "Apply", (value) => {
-				void this.applyHeal(this.activeIndex, value);
-			}).open();
+		// healBtn.onclick = () =>
+		// 	new NumberInputModal(this.app, "Heal", "Apply", (value) => {
+		// 		void this.applyHeal(this.activeIndex, value);
+		// 	}).open();
 
-		woundBtn.onclick = () => void this.toggleMajorWound(this.activeIndex);
+		// woundBtn.onclick = () => void this.toggleMajorWound(this.activeIndex);
 
-		insanityBtn.onclick = () => {
-			if (c.temporaryInsanity) void this.clearInsanity(this.activeIndex);
-			else this.openInsanityModal(this.activeIndex);
-		};
+		// insanityBtn.onclick = () => {
+		// 	if (c.temporaryInsanity) void this.clearInsanity(this.activeIndex);
+		// 	else this.openInsanityModal(this.activeIndex);
+		// };
 
-		prevBtn.onclick = () => void this.prevTurn();
-		nextBtn.onclick = () => void this.nextTurn();
+		// prevBtn.onclick = () => void this.prevTurn();
+		// nextBtn.onclick = () => void this.nextTurn();
 
-		if (!c.rawStatblock?.trim()) {
-			noteWrapper.createEl("p", { text: "No statblock found." });
-			return;
-		}
+		// if (!c.rawStatblock?.trim()) {
+		// 	noteWrapper.createEl("p", { text: "No statblock found." });
+		// 	return;
+		// }
 
 		const fakeMarkdown = ["```statblock", c.rawStatblock.trim(), "```"].join("\n");
 		await MarkdownRenderer.renderMarkdown(fakeMarkdown, noteWrapper, c.filePath, null);

@@ -108,7 +108,7 @@
 }
 
 .coc-battle-combatant-row.is-active::before {
-	content: "▶ DRAN";
+	content: "▶ UP";
 	position: absolute;
 	top: -10px;
 	right: 12px;
@@ -320,4 +320,13 @@
 
 .coc-battle-combatant-row.is-player .coc-battle-name {
 	text-shadow: 0 0 10px color-mix(in srgb, #6fd3c1 18%, transparent);
+}
+.coc-battle-badge.weapon-drawn,
+.coc-battle-statebar-item.weapon-drawn {
+	border-color: #d98cff;
+	color: #efc8ff;
+}
+
+.coc-battle-combatant-row:has(.coc-battle-badge.weapon-drawn):not(.status-dead):not(.status-unconscious):not(.status-dying) {
+	border-color: color-mix(in srgb, #d98cff 45%, var(--background-modifier-border));
 }

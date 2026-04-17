@@ -14,6 +14,7 @@ A small Obsidian plugin scaffold for Call of Cthulhu 7e combats.
 - Applies rules for wounds, death and unconsciousness and lables these states
 - Lets you apply Insanity and display an insanity lable for X rounds
 - Is keeping players in the battelview permanently and labeling them as players if the statblock gets dropped into the view from a folder containing "player"
+- Lets you apply the "drawn weapon" Modifier to set the initiative to dex+50
 
 ![alt text](image.png)
 
